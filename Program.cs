@@ -8,9 +8,19 @@ using System.Threading;
 
 namespace DatabaseTest
 {
+    static class Variables
+    {
+        static readonly string ConnectionString =
+                        "Data Source=desktop-sa03gi7;" +
+                        "Initial Catalog=TestLogin;" +
+                        "Integrated Security=SSPI;";
+        public static SqlConnection conn = new SqlConnection(ConnectionString);
+    }
+
     class Program
     {
-        static string sha256(string randomString)
+
+        static string Sha256(string randomString)
         {
             // Encrypt given string to SHA256
             var crypt = new SHA256Managed();
@@ -23,7 +33,7 @@ namespace DatabaseTest
             return hash.ToString();
         }
 
-        public static string random(int length, bool numeric)
+        public static string Random(int length, bool numeric)
         {
             // Random numbers of length length
             // Used for UserID
@@ -91,16 +101,16 @@ namespace DatabaseTest
             while (true)
             {
                 Console.WriteLine("Please enter an option");
-                string LorS = Console.ReadLine();
-                if (LorS == "L")
+                string opt = Console.ReadLine();
+                if (opt == "L")
                 {
                     Console.Clear();
-                    logIn();
+                    LogIn();
                 }
-                else if (LorS == "S")
+                else if (opt == "S")
                 {
                     Console.Clear();
-                    signUp();
+                    SignUp();
                 }
                 else
                 {
@@ -110,23 +120,16 @@ namespace DatabaseTest
             }
         }
 
-        static void signUp()
+        static void SignUp()
         {
             // Connection String for database
-            string ConnectionString =
-                        "Data Source=desktop-sa03gi7;" +
-                        "Initial Catalog=TestLogin;" +
-                        "Integrated Security=SSPI;";
-            SqlConnection conn = new SqlConnection(ConnectionString);
 
-            string username = "";
-            string passHash = "";
-            string salt = "";
-            string userID = "";
+            string username, passHash, salt, userID;
+            username = userID = "";
 
             // Username
             bool tooLong = true;
-            conn.Open();
+            Variables.conn.Open();
             while (tooLong == true)
             {
                 Console.WriteLine("Enter a username:");
@@ -143,7 +146,7 @@ namespace DatabaseTest
                 }
                 else
                 {
-                    SqlCommand testUser = new SqlCommand($"SELECT * FROM Users WHERE Username = @userName;", conn);
+                    SqlCommand testUser = new SqlCommand($"SELECT * FROM Users WHERE Username = @userName;", Variables.conn);
                     testUser.Parameters.Add("@UserName", SqlDbType.NChar);
                     testUser.Parameters["@UserName"].Value = username;
                     object testUserResult = testUser.ExecuteScalar();
@@ -154,7 +157,7 @@ namespace DatabaseTest
                     else
                     {
                         tooLong = false;
-                        conn.Close();
+                        Variables.conn.Close();
                         Console.WriteLine("Username accepted");
                     }
                 }
@@ -168,37 +171,34 @@ namespace DatabaseTest
             if (inputString == confirm)
             {
                 // Add salt to password encryption
-                salt = random(16, false);
-                passHash = sha256(inputString + salt);
+                salt = Random(16, false);
+                passHash = Sha256(inputString + salt);
 
                 // Create User ID
                 bool idUnique = true;
                 while (idUnique == true)
                 {
-                    userID = random(12, true);
-                    SqlCommand testID = new SqlCommand($"SELECT UserID FROM Users WHERE UserID = @UserID;", conn);
-                    testID.Parameters.Add("@UserID", SqlDbType.VarChar);
-                    testID.Parameters["@UserID"].Value = userID;
-                    conn.Open();
+                    userID = Random(12, true);
+                    SqlCommand testID = new SqlCommand($"SELECT UserID FROM Users WHERE UserID = @UserID;", Variables.conn);
+                    testID.Parameters.Add(new SqlParameter("@UserID", userID));
+                    Variables.conn.Open();
                     if (testID.ExecuteScalar() == null)
                     {
                         idUnique = false;
-                        conn.Close();
+                        Variables.conn.Close();
                     }
                 }
                 
-                SqlCommand newUser = new SqlCommand($"INSERT INTO Users VALUES(@UserID, @UserName, @PassHash, @Salt);", conn);
-                newUser.Parameters.Add("@UserID", SqlDbType.NChar);
-                newUser.Parameters["@UserID"].Value = userID;
-                newUser.Parameters.Add("@UserName", SqlDbType.NChar);
-                newUser.Parameters["@UserName"].Value = username;
-                newUser.Parameters.Add("@PassHash", SqlDbType.NChar);
-                newUser.Parameters["@PassHash"].Value = passHash;
-                newUser.Parameters.Add("@Salt", SqlDbType.NChar);
-                newUser.Parameters["@Salt"].Value = salt;
-                conn.Open();
+                // Make a new SQL command to create the user
+                SqlCommand newUser = new SqlCommand($"INSERT INTO Users VALUES(@UserID, @UserName, @PassHash, @Salt);", Variables.conn);
+                newUser.Parameters.Add(new SqlParameter("@UserID", userID));
+                newUser.Parameters.Add(new SqlParameter("@UserName", username));
+                newUser.Parameters.Add(new SqlParameter("@PassHash", passHash));
+                newUser.Parameters.Add(new SqlParameter("@Salt", salt));
+                // Execute the new command
+                Variables.conn.Open();
                 newUser.ExecuteNonQuery();
-                conn.Close();
+                Variables.conn.Close();
                 Console.WriteLine($"Your account has been created, {username}");
                 Console.WriteLine("Returning to the main menu...");
                 Thread.Sleep(1000);
@@ -212,23 +212,17 @@ namespace DatabaseTest
             }
         }
 
-        static void logIn()
+        static void LogIn()
         {
-            string ConnectionString =
-                        "Data Source=desktop-sa03gi7;" +
-                        "Initial Catalog=TestLogin;" +
-                        "Integrated Security=SSPI;";
-            SqlConnection conn = new SqlConnection(ConnectionString);
-
-            string username = "";
-            string password = string.Empty;
-            string passwordHash = string.Empty;
-            string salt = string.Empty;
-            string userID = "";
+            string username, userID;
+            username = userID = "";
+            string password, passwordHash, salt;
+            password = passwordHash = salt = string.Empty;
 
             Console.WriteLine("Please enter your username:");
             username = Console.ReadLine();
             Console.WriteLine("Please enter your password:");
+            // Hide password while it's being typed
             ConsoleKey key;
             do
             {
@@ -247,61 +241,67 @@ namespace DatabaseTest
                 }
             } while (key != ConsoleKey.Enter);
 
-            conn.Open();
-            using (SqlCommand findUser = new SqlCommand($"SELECT * FROM Users WHERE Username = @UserName;", conn))
+            // Create new SQL command to find a user
+            using SqlCommand findUser = new SqlCommand($"SELECT * FROM Users WHERE Username = @UserName;", Variables.conn);
+            findUser.Parameters.Add(new SqlParameter("@UserName", username));
+            // Find the line the username is on, and populate variables
+            Variables.conn.Open();
+            using SqlDataReader reader = findUser.ExecuteReader();
+            int count = reader.FieldCount;
+            while (reader.Read())
             {
-                findUser.Parameters.Add(new SqlParameter("@UserName", username));
-                using (SqlDataReader reader = findUser.ExecuteReader())
+                for (int i = 0; i < count; i++)
                 {
-                    int count = reader.FieldCount;
-                    while (reader.Read())
+                    switch (i)
                     {
-                        for (int i = 0; i < count; i++)
-                        {
-                            switch (i)
-                            {
-                                case 0:
-                                    userID = reader.GetValue(i).ToString();
-                                    break;
+                        case 0:
+                            userID = reader.GetValue(i).ToString();
+                            break;
 
-                                case 1:
-                                    break;
+                        case 1:
+                            break;
 
-                                case 2:
-                                    passwordHash = reader.GetValue(i).ToString();
-                                    break;
+                        case 2:
+                            passwordHash = reader.GetValue(i).ToString();
+                            break;
 
-                                case 3:
-                                    salt = reader.GetValue(i).ToString();
-                                    break;
-                            }
-                        }
+                        case 3:
+                            salt = reader.GetValue(i).ToString();
+                            break;
                     }
-                    if (userID == "")
-                    {
-                        Console.WriteLine("Username does not exist");
-                        Main();
-                    }
-                    else
-                    {
-                        password = sha256(password + salt);
-                        if (password != passwordHash)
-                        {
-                            Console.WriteLine("Password Incorrect\n");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Password Accepted\n");
-                        }
-                    }
-
-                    Console.WriteLine($"UserID: {userID}");
-                    Console.WriteLine($"Username: {username}");
-                    Console.WriteLine($"Password: {password}");
-                    Console.WriteLine($"Password Hash: {passwordHash}");
-                    Console.WriteLine($"Salt: {salt}");
                 }
             }
+            // If userID is blank, user doesn't exist
+            if (userID == "")
+            {
+                Console.WriteLine("Username does not exist");
+                Main();
+            }
+            else
+            {
+                // Try the password
+                password = Sha256(password + salt);
+                if (password != passwordHash)
+                {
+                    Console.WriteLine("Password Incorrect\n");
+                }
+                else
+                {
+                    Console.WriteLine("Password Accepted\n");
+                }
+            }
+            Variables.conn.Close();
+
+            Console.WriteLine($"UserID: {userID}");
+            Console.WriteLine($"Username: {username}");
+            Console.WriteLine($"Password: {password}");
+            Console.WriteLine($"Password Hash: {passwordHash}");
+            Console.WriteLine($"Salt: {salt}");
+
+            Console.WriteLine("Returning to the main menu...");
+            Thread.Sleep(2000);
+            Console.Clear();
+            Main();
         }
     }
 }
