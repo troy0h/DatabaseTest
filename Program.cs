@@ -7,7 +7,7 @@ namespace DatabaseTest
 {
     class Program
     {
-        static void Main()
+        public static void Main()
         {
             Console.WriteLine("Hello\n" +
                     "(L)ogin or (S)ignup?");
@@ -15,30 +15,44 @@ namespace DatabaseTest
             {
                 Console.WriteLine("Please enter an option");
                 string opt = Console.ReadLine();
-                if (opt == "L")
+                switch (opt)
                 {
-                    Console.Clear();
-                    LogIn();
-                }
-                else if (opt == "S")
-                {
-                    Console.Clear();
-                    SignUp();
-                }
-                else
-                {
-                    Console.WriteLine("That is not a valid option\n" +
+                    case "L":
+                        Console.Clear();
+                        LogIn();
+                        break;
+
+                    case "l":
+                        Console.Clear();
+                        LogIn();
+                        break;
+
+                    case "S":
+                        Console.Clear();
+                        SignUp();
+                        break;
+
+                    case "s":
+                        Console.Clear();
+                        SignUp();
+                        break;
+
+                    default:
+                        Console.WriteLine("That is not a valid option\n" +
                         "Enter either L or S");
+                        break;
                 }
             }
         }
 
-        static void SignUp()
+        public static void SignUp()
         {
             // Connection String for database
 
             string username, passHash, salt, userID;
             username = userID = "";
+
+            Console.WriteLine("Sign Up");
 
             // Username
             bool tooLong = true;
@@ -78,9 +92,9 @@ namespace DatabaseTest
 
             // Password
             Console.WriteLine("Enter a password:");
-            string inputString = Console.ReadLine();
+            string inputString = Functions.InsPassword("*");
             Console.WriteLine("Please confirm your password");
-            string confirm = Console.ReadLine();
+            string confirm = Functions.InsPassword("*");
             if (inputString == confirm)
             {
                 // Add salt to password encryption
@@ -114,7 +128,7 @@ namespace DatabaseTest
                 Functions.conn.Close();
                 Console.WriteLine($"Your account has been created, {username}");
                 Console.WriteLine("Returning to the main menu...");
-                Thread.Sleep(1000);
+                Thread.Sleep(3000);
                 Console.Clear();
                 Main();
 
@@ -125,35 +139,20 @@ namespace DatabaseTest
             }
         }
 
-        static void LogIn()
+        public static void LogIn()
         {
             string username, userID;
-            username = userID = "";
+            userID = "";
             string password, passwordHash, salt;
-            password = passwordHash = salt = string.Empty;
+            passwordHash = salt = string.Empty;
+
+            Console.WriteLine("Log In");
 
             Console.WriteLine("Please enter your username:");
             username = Console.ReadLine();
             Console.WriteLine("Please enter your password:");
-            // Hide password while it's being typed
-            ConsoleKey key;
-            do
-            {
-                var keyInfo = Console.ReadKey(intercept: true);
-                key = keyInfo.Key;
-
-                if (key == ConsoleKey.Backspace && password.Length > 0)
-                {
-                    Console.Write("\b \b");
-                    password = password[0..^1];
-                }
-                else if (!char.IsControl(keyInfo.KeyChar))
-                {
-                    Console.Write("");
-                    password += keyInfo.KeyChar;
-                }
-            } while (key != ConsoleKey.Enter);
-
+            password = Functions.InsPassword("");
+            
             // Create new SQL command to find a user
             using SqlCommand findUser = new SqlCommand($"SELECT * FROM Users WHERE Username = @UserName;", Functions.conn);
             findUser.Parameters.Add(new SqlParameter("@UserName", username));
@@ -188,6 +187,7 @@ namespace DatabaseTest
             if (userID == "")
             {
                 Console.WriteLine("Username does not exist");
+                Functions.conn.Close();
                 Main();
             }
             else
@@ -197,6 +197,10 @@ namespace DatabaseTest
                 if (password != passwordHash)
                 {
                     Console.WriteLine("Password Incorrect\n");
+                    Console.WriteLine("Returning to menu...");
+                    Thread.Sleep(3000);
+                    Console.Clear();
+                    Main();
                 }
                 else
                 {
@@ -211,10 +215,50 @@ namespace DatabaseTest
             Console.WriteLine($"Password Hash: {passwordHash}");
             Console.WriteLine($"Salt: {salt}");
 
-            Console.WriteLine("Returning to the main menu...");
-            Thread.Sleep(2000);
+            Console.WriteLine($"You have now logged in, {username}");
+            Console.WriteLine("Please wait...");
+
+            Functions.userID = userID;
+            Functions.username = username;
+            Functions.passwordHash = passwordHash;
+            Functions.salt = salt;
+
+            Thread.Sleep(3000);
             Console.Clear();
-            Main();
+            LoggedInMenu();
+        }
+
+        public static void LoggedInMenu()
+        {
+            Console.WriteLine($"Hello, {Functions.username}");
+            Console.WriteLine("Please enter an option:\n" +
+                "X to sign out and return to the main menu\n" +
+                "C to change your password");
+            while (true)
+            {
+                switch (Console.ReadLine())
+                {
+                    case "X":
+                        Functions.SignOut();
+                        break;
+
+                    case "x":
+                        Functions.SignOut();
+                        break;
+
+                    case "C":
+                        Functions.ChangePass();
+                        break;
+
+                    case "c":
+                        Functions.ChangePass();
+                        break;
+
+                    default:
+                        Console.WriteLine("That is not an option");
+                        break;
+                }
+            }
         }
     }
 }
