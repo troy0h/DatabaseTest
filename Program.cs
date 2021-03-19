@@ -14,25 +14,14 @@ namespace DatabaseTest
             while (true)
             {
                 Console.WriteLine("Please enter an option");
-                string opt = Console.ReadLine();
-                switch (opt)
+                switch (Console.ReadLine().ToUpper())
                 {
                     case "L":
                         Console.Clear();
                         LogIn();
                         break;
 
-                    case "l":
-                        Console.Clear();
-                        LogIn();
-                        break;
-
                     case "S":
-                        Console.Clear();
-                        SignUp();
-                        break;
-
-                    case "s":
                         Console.Clear();
                         SignUp();
                         break;
@@ -236,21 +225,13 @@ namespace DatabaseTest
                 "C to change your password");
             while (true)
             {
-                switch (Console.ReadLine())
+                switch (Console.ReadLine().ToUpper())
                 {
                     case "X":
                         Functions.SignOut();
                         break;
 
-                    case "x":
-                        Functions.SignOut();
-                        break;
-
                     case "C":
-                        Functions.ChangePass();
-                        break;
-
-                    case "c":
                         Functions.ChangePass();
                         break;
 
